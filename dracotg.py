@@ -21,20 +21,33 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 
 class _HealthHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
+    def _respond(self):
         self.send_response(200)
         self.send_header('Content-Type', 'text/plain')
+        self.send_header('Cache-Control', 'no-store')
         self.end_headers()
-        self.wfile.write(b'NIK Bot is running')
+        try:
+            self.wfile.write(b'OK')
+        except Exception:
+            pass
+
+    def do_GET(self):     self._respond()
+    def do_HEAD(self):    self._respond()
+    def do_POST(self):    self._respond()
+    def do_PUT(self):     self._respond()
+    def do_DELETE(self):  self._respond()
+    def do_OPTIONS(self): self._respond()
+    def do_PATCH(self):   self._respond()
+
     def log_message(self, format, *args):
         pass
 
 def _start_health_server():
-    port = int(os.getenv("PORT", 10000))
+    port = int(os.getenv("PORT", "10000"))
     def _run():
         try:
             server = HTTPServer(('0.0.0.0', port), _HealthHandler)
-            print(f"[+] Health server started on port {port}")
+            print(f"[+] Health server started on 0.0.0.0:{port}")
             server.serve_forever()
         except Exception as e:
             print(f"[!] Health server failed: {e}")
@@ -43,9 +56,12 @@ def _start_health_server():
 
 _start_health_server()
 
+# ============================================================
+#                    TELETHON IMPORTS
+# ============================================================
 from telethon import TelegramClient, events, Button
 from telethon.errors import (
-    SessionPasswordNeededError, 
+    SessionPasswordNeededError,
     MessageNotModifiedError,
     UserNotParticipantError,
     ChatAdminRequiredError
@@ -59,6 +75,7 @@ API_ID =   35346105
 API_HASH = "09c70b4968a16641c731f49771752129"
 BOT_TOKEN = "8823061799:AAGAfXFgkr_bo6W1aBpyIKbg926z7RU67YU" 
 ADMIN_ID =  6953687564
+# ... rest same
 
 # CHANNELS
 LOG_CHANNEL_ID =  -1003908635300
