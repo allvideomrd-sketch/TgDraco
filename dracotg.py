@@ -1269,6 +1269,7 @@ async def handle_callback_query(e):
 
 async def main():
     print("✅ ULTIMATE ADVANCED HTML BOT STARTED SUCCESSFULLY")
+    await bot.start(bot_token=BOT_TOKEN)
     await bot.run_until_disconnected()
 
 if __name__ == '__main__':
