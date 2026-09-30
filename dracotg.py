@@ -21,12 +21,7 @@ from telethon.errors import (
     UserNotParticipantError,
     ChatAdminRequiredError
 )
-from telethon.tl.types import (
-    ReplyKeyboardMarkup,
-    KeyboardButtonRow,
-    KeyboardButton,
-    KeyboardButtonUrl,
-)
+from telethon.tl.types import ReplyKeyboardMarkup, KeyboardButtonRow, KeyboardButton
 from telethon.tl.functions.channels import GetParticipantRequest
 from telethon.tl.functions.account import GetPasswordRequest
 
@@ -1463,7 +1458,7 @@ async def handle_start(e):
         if not terms_acc:
             msg = f"{P_DOC} <b>TERMS & CONDITIONS</b>\nPlease read and accept our Terms & Conditions before using the bot."
             btns = [
-                [KeyboardButtonUrl(text="📜 Read Terms & Conditions", url=TERMS_URL)],
+                [Button.url("📜 Read Terms & Conditions", TERMS_URL)],
                 [Button.inline("✅ Accept", "tc_accept"), Button.inline("❌ Reject", "tc_reject")]
             ]
             return await e.respond(msg, buttons=btns)
@@ -1586,7 +1581,7 @@ async def handle_all_messages(e):
         elif "My Profile" in text: await profile_handler(e)
         elif "My Stats" in text: await stats_handler(e)
         elif "Support" in text: 
-            await e.reply(f"{P_ON} <b>NOVA ACCOUNT SHOP Support & Relevant Information</b>\n\n{P_WARN} For Support Contact Admin ..", buttons=[[Button.url("📩 Support", get_support_url())], [KeyboardButtonUrl(text="📜 Terms & Conditions", url=TERMS_URL)], [Button.url("📢 Channel", JOIN_URLS[0])]])
+            await e.reply(f"{P_ON} <b>NOVA ACCOUNT SHOP Support & Relevant Information</b>\n\n{P_WARN} For Support Contact Admin ..", buttons=[[Button.url("📩 Support", get_support_url())], [Button.url("📜 Terms & Conditions", TERMS_URL)], [Button.url("📢 Channel", JOIN_URLS[0])]])
         elif "Admin Panel" in text: 
             if is_admin(uid): await admin_panel_handler(e)
 
@@ -1614,7 +1609,7 @@ async def handle_callback_query(e):
             terms = row[0] if row else 0
             if not terms:
                 msg = "📜 <b>TERMS & CONDITIONS</b>\nPlease read and accept our Terms & Conditions before using the bot."
-                btns = [[KeyboardButtonUrl(text="📜 Read Terms & Conditions", url=TERMS_URL)], [Button.inline("✅ Accept", "tc_accept"), Button.inline("❌ Reject", "tc_reject")]]
+                btns = [[Button.url("📜 Read Terms & Conditions", TERMS_URL)], [Button.inline("✅ Accept", "tc_accept"), Button.inline("❌ Reject", "tc_reject")]]
                 try: await e.edit(msg, buttons=btns)
                 except MessageNotModifiedError: pass
                 return
