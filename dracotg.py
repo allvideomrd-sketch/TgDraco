@@ -21,7 +21,12 @@ from telethon.errors import (
     UserNotParticipantError,
     ChatAdminRequiredError
 )
-from telethon.tl.types import ReplyKeyboardMarkup, KeyboardButtonRow, KeyboardButton, KeyboardButtonWebView
+from telethon.tl.types import (
+    ReplyKeyboardMarkup,
+    KeyboardButtonRow,
+    KeyboardButton,
+    KeyboardButtonUrl,
+)
 from telethon.tl.functions.channels import GetParticipantRequest
 from telethon.tl.functions.account import GetPasswordRequest
 
@@ -37,7 +42,6 @@ PURCHASE_LOG_CHANNEL_ID = -1003908635300
 CHECK_CHANNELS = [-1001744684493]
 JOIN_URLS = [
     "https://t.me/Novatgstoreupdates",
-  #  REPLACE WITH PRIVATE CHANNEL INVITE LINK
 ]
 
 # LINKS & MEDIA
@@ -53,7 +57,6 @@ OTP_REGEX = r"\b\d{4,8}\b"
 AUTO_CANCEL_SECONDS = 600 
 
 # ================= CRASH-FREE HD EMOJIS =================
-# We use standard HD emojis to completely bypass Telegram's ENTITY_TEXT_INVALID Premium bans
 P_YES = '✅'
 P_NO = '❌'
 P_PKG = '📦'
@@ -408,7 +411,6 @@ async def deposit_menu(event):
     msg = f"{P_CARD} <b>Select Payment Method:</b>\n\n{P_ON} Choose Automatic for instant credit.\n{P_WAIT} Choose Manual for other methods."
     flat_buttons = [
         Button.inline("⚡ UPI Payment (Manual)", "dep_upi"),
-        # Button.inline("👛 Cwallet ( +5% )", "depm_Cwallet")
     ]
     customs = cur.execute("SELECT name FROM custom_payments").fetchall()
     for c in customs:
@@ -1461,7 +1463,7 @@ async def handle_start(e):
         if not terms_acc:
             msg = f"{P_DOC} <b>TERMS & CONDITIONS</b>\nPlease read and accept our Terms & Conditions before using the bot."
             btns = [
-                [KeyboardButtonWebView(text="📜 Read Terms & Conditions", url=TERMS_URL)],
+                [KeyboardButtonUrl(text="📜 Read Terms & Conditions", url=TERMS_URL)],
                 [Button.inline("✅ Accept", "tc_accept"), Button.inline("❌ Reject", "tc_reject")]
             ]
             return await e.respond(msg, buttons=btns)
@@ -1584,7 +1586,7 @@ async def handle_all_messages(e):
         elif "My Profile" in text: await profile_handler(e)
         elif "My Stats" in text: await stats_handler(e)
         elif "Support" in text: 
-            await e.reply(f"{P_ON} <b>NOVA ACCOUNT SHOP Support & Relevant Information</b>\n\n{P_WARN} For Support Contact Admin ..", buttons=[[Button.url("📩 Support", get_support_url())], [KeyboardButtonWebView(text="?? Terms & Conditions", url=TERMS_URL)], [Button.url("📢 Channel", JOIN_URLS[0])]])
+            await e.reply(f"{P_ON} <b>NOVA ACCOUNT SHOP Support & Relevant Information</b>\n\n{P_WARN} For Support Contact Admin ..", buttons=[[Button.url("📩 Support", get_support_url())], [KeyboardButtonUrl(text="📜 Terms & Conditions", url=TERMS_URL)], [Button.url("📢 Channel", JOIN_URLS[0])]])
         elif "Admin Panel" in text: 
             if is_admin(uid): await admin_panel_handler(e)
 
@@ -1612,7 +1614,7 @@ async def handle_callback_query(e):
             terms = row[0] if row else 0
             if not terms:
                 msg = "📜 <b>TERMS & CONDITIONS</b>\nPlease read and accept our Terms & Conditions before using the bot."
-                btns = [[KeyboardButtonWebView(text="📜 Read Terms & Conditions", url=TERMS_URL)], [Button.inline("✅ Accept", "tc_accept"), Button.inline("❌ Reject", "tc_reject")]]
+                btns = [[KeyboardButtonUrl(text="📜 Read Terms & Conditions", url=TERMS_URL)], [Button.inline("✅ Accept", "tc_accept"), Button.inline("❌ Reject", "tc_reject")]]
                 try: await e.edit(msg, buttons=btns)
                 except MessageNotModifiedError: pass
                 return
