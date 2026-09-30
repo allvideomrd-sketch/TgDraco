@@ -1,45 +1,8 @@
 import os
 import sys
-import subprocess
-import importlib
 
 # ============================================================
-#               AUTO-INSTALL DEPENDENCIES
-# ============================================================
-REQUIRED = {
-    "telethon": "telethon",
-    "qrcode": "qrcode",
-    "PIL": "pillow",
-    "socks": "python-socks",
-}
-
-def _ensure_deps():
-    missing = []
-    for m, p in REQUIRED.items():
-        try:
-            importlib.import_module(m)
-        except ImportError:
-            missing.append(p)
-    if not missing:
-        return
-    print(f"[!] Missing: {', '.join(missing)}")
-    print("[*] Auto-installing...\n")
-    pip = [sys.executable, "-m", "pip", "install", "--upgrade", *missing]
-    try:
-        subprocess.check_call(pip)
-    except subprocess.CalledProcessError:
-        try:
-            subprocess.check_call(pip[:4] + ["--break-system-packages"] + pip[4:])
-        except subprocess.CalledProcessError:
-            print(f"\n[!] Install failed.\n    pip install {' '.join(missing)}\n")
-            sys.exit(1)
-    print("[+] Installed. Restarting...\n")
-    os.execv(sys.executable, [sys.executable] + sys.argv)
-
-_ensure_deps()
-
-# ============================================================
-#               DUMMY HTTP SERVER (Render port binding)
+#              PORT BINDING (Render Web Service)
 # ============================================================
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
@@ -48,7 +11,6 @@ class _HealthHandler(BaseHTTPRequestHandler):
     def _respond(self):
         self.send_response(200)
         self.send_header('Content-Type', 'text/plain')
-        self.send_header('Cache-Control', 'no-store')
         self.end_headers()
         try:
             self.wfile.write(b'OK')
@@ -71,10 +33,10 @@ def _start_health_server():
     def _run():
         try:
             server = HTTPServer(('0.0.0.0', port), _HealthHandler)
-            print(f"[+] Health server started on 0.0.0.0:{port}")
+            print(f"[+] Health server started on 0.0.0.0:{port}", flush=True)
             server.serve_forever()
         except Exception as e:
-            print(f"[!] Health server failed: {e}")
+            print(f"[!] Health server failed: {e}", flush=True)
     t = threading.Thread(target=_run, daemon=True)
     t.start()
 
@@ -117,6 +79,7 @@ API_ID =   35346105
 API_HASH = "09c70b4968a16641c731f49771752129"
 BOT_TOKEN = "8823061799:AAGAfXFgkr_bo6W1aBpyIKbg926z7RU67YU"
 ADMIN_ID =  6953687564
+# ... rest same
 
 # CHANNELS
 LOG_CHANNEL_ID =  -1003908635300
