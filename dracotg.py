@@ -14,6 +14,35 @@ import struct
 import zlib
 import qrcode
 
+# ============================================================
+#              DUMMY HTTP SERVER (Render port binding)
+# ============================================================
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
+
+class _HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(b'NIK Bot is running')
+    def log_message(self, format, *args):
+        pass
+
+def _start_health_server():
+    port = int(os.getenv("PORT", 10000))
+    def _run():
+        try:
+            server = HTTPServer(('0.0.0.0', port), _HealthHandler)
+            print(f"[+] Health server started on port {port}")
+            server.serve_forever()
+        except Exception as e:
+            print(f"[!] Health server failed: {e}")
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+
+_start_health_server()
+
 from telethon import TelegramClient, events, Button
 from telethon.errors import (
     SessionPasswordNeededError, 
