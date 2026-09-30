@@ -218,9 +218,8 @@ def setup_db():
 
 setup_db()
 
-# ================= HELPER FUNCTIONS =================
+# ================= HELPERS =================
 def _btn(text):
-    """KeyboardButton factory — safe across telethon versions."""
     try:
         return KeyboardButton(text=text)
     except TypeError:
@@ -664,6 +663,53 @@ async def auto_otp_task(phone):
             db.commit()
         try: await bot.edit_message(uid, msg_id, f"{P_TIME} <b>Order Expired!</b>\nThe 10-minute limit for <code>{phone}</code> ran out. Your money ({P_INR}{order['price']}) has been automatically refunded.")
         except: pass
+
+async def init_session_purchase(event, country, year, price_str):
+    uid, price = event.sender_id, int(price_str)
+    stock_row = cur.execute("SELECT COUNT(*) FROM stock WHERE country_name LIKE ? AND account_year=? AND price=? AND available=1", (f"{country}%", int(year), price)).fetchone()
+    stock = stock_row[0] if stock_row else 0
+    if stock == 0: return await event.answer("❌ Out of stock!", alert=True)
+    session_buy_state[uid] = {'country': country, 'year': year, 'price': price, 'stock': stock}
+    disc_row = cur.execute("SELECT discount FROM users WHERE user_id=?", (uid,)).fetchone()
+    discount = disc_row[0] if disc_row else 0
+    p_disp = price if discount == 0 else int(price * (100 - discount) / 100)
+    msg = (f"{P_STORE} <b>Buy {country} ({year}) Sessions</b>\n\n{P_MONEY} <b>Price/session:</b> {P_INR}{p_disp}\n{P_PKG} <b>Available:</b> {stock}\n\n👇 Reply with <b>Number of Sessions</b>:")
+    await event.edit(msg, buttons=[[Button.inline("Cancel", "cancel_action")]])
+
+async def process_bulk_sessions(event, uid, qty, state, final_cost):
+    country, year, price = state['country'], int(state['year']), int(state['price'])
+    await event.respond(f"{P_WAIT} <b>Processing sessions...</b>")
+    async with get_user_lock(uid):
+        rows = cur.execute("SELECT phone, session_file, twofa, account_year FROM stock WHERE country_name LIKE ? AND account_year=? AND price=? AND available=1 LIMIT ?", (f"{country}%", year, price, qty)).fetchall()
+        if len(rows) < qty: return await event.respond(f"{P_NO} Stock changed. Cancelled.")
+        cur.execute("UPDATE users SET balance = balance - ? WHERE user_id=? AND balance >= ?", (final_cost, uid, final_cost))
+        if cur.rowcount == 0: return await event.respond(f"{P_NO} Insufficient Balance!")
+        phones = [r[0] for r in rows]
+        placeholders = ",".join("?" for _ in phones)
+        cur.execute(f"UPDATE stock SET available=0 WHERE phone IN ({placeholders})", phones)
+        price_per_acc = final_cost // qty
+        for p in phones:
+            cur.execute("INSERT INTO orders (user_id, country, price, phone, otp) VALUES (?,?,?,?,?)", (uid, country, price_per_acc, p, "SESSION_FILES"))
+        db.commit()
+    zip_name = f"sessions_{uid}_{int(time.time())}.zip"
+    numbers_txt = ""
+    try:
+        with zipfile.ZipFile(zip_name, 'w') as zf:
+            for phone, sess_file, twofa_pass, y in rows:
+                base_s = sess_file if not sess_file.endswith(".session") else sess_file[:-8]
+                for ext in ['.session', '.session-wal', '.session-shm', '.session-journal']:
+                    src = base_s + ext
+                    if os.path.exists(src): zf.write(src, os.path.basename(src))
+                pass_text = twofa_pass if twofa_pass != "None" else "No_Password"
+                numbers_txt += f"+{phone} | pass:{pass_text}\n"
+            numbers_txt += "\n\nPurchased from @nova_tgid_store_bot\n"
+            zf.writestr("numbers.txt", numbers_txt)
+        caption = f"{P_YES} <b>Bulk Purchase Successful!</b>\n\n{P_FLAG} Country: {country}\n{P_PKG} Quantity: {qty}\n{P_CARD} Total Paid: {P_INR}{final_cost}"
+        await bot.send_file(uid, zip_name, caption=caption)
+        await log_primary_purchase(uid, country, price, final_cost, year, qty)
+    except Exception as e: await event.respond(f"{P_WARN} Error: {e}")
+    finally:
+        if os.path.exists(zip_name): os.remove(zip_name)
 
 # ================= PROFILE / STATS =================
 async def profile_handler(event):
@@ -1221,59 +1267,9 @@ async def handle_callback_query(e):
             except: pass
     except Exception as ex: print(f"Callback Error: {ex}")
 
-async def init_session_purchase(event, country, year, price_str):
-    uid, price = event.sender_id, int(price_str)
-    stock_row = cur.execute("SELECT COUNT(*) FROM stock WHERE country_name LIKE ? AND account_year=? AND price=? AND available=1", (f"{country}%", int(year), price)).fetchone()
-    stock = stock_row[0] if stock_row else 0
-    if stock == 0: return await event.answer("❌ Out of stock!", alert=True)
-    session_buy_state[uid] = {'country': country, 'year': year, 'price': price, 'stock': stock}
-    disc_row = cur.execute("SELECT discount FROM users WHERE user_id=?", (uid,)).fetchone()
-    discount = disc_row[0] if disc_row else 0
-    p_disp = price if discount == 0 else int(price * (100 - discount) / 100)
-    msg = (f"{P_STORE} <b>Buy {country} ({year}) Sessions</b>\n\n{P_MONEY} <b>Price/session:</b> {P_INR}{p_disp}\n{P_PKG} <b>Available:</b> {stock}\n\n👇 Reply with <b>Number of Sessions</b>:")
-    await event.edit(msg, buttons=[[Button.inline("Cancel", "cancel_action")]])
-
-async def process_bulk_sessions(event, uid, qty, state, final_cost):
-    country, year, price = state['country'], int(state['year']), int(state['price'])
-    await event.respond(f"{P_WAIT} <b>Processing sessions...</b>")
-    async with get_user_lock(uid):
-        rows = cur.execute("SELECT phone, session_file, twofa, account_year FROM stock WHERE country_name LIKE ? AND account_year=? AND price=? AND available=1 LIMIT ?", (f"{country}%", year, price, qty)).fetchall()
-        if len(rows) < qty: return await event.respond(f"{P_NO} Stock changed. Cancelled.")
-        cur.execute("UPDATE users SET balance = balance - ? WHERE user_id=? AND balance >= ?", (final_cost, uid, final_cost))
-        if cur.rowcount == 0: return await event.respond(f"{P_NO} Insufficient Balance!")
-        phones = [r[0] for r in rows]
-        placeholders = ",".join("?" for _ in phones)
-        cur.execute(f"UPDATE stock SET available=0 WHERE phone IN ({placeholders})", phones)
-        price_per_acc = final_cost // qty
-        for p in phones:
-            cur.execute("INSERT INTO orders (user_id, country, price, phone, otp) VALUES (?,?,?,?,?)", (uid, country, price_per_acc, p, "SESSION_FILES"))
-        db.commit()
-    zip_name = f"sessions_{uid}_{int(time.time())}.zip"
-    numbers_txt = ""
-    try:
-        with zipfile.ZipFile(zip_name, 'w') as zf:
-            for phone, sess_file, twofa_pass, y in rows:
-                base_s = sess_file if not sess_file.endswith(".session") else sess_file[:-8]
-                for ext in ['.session', '.session-wal', '.session-shm', '.session-journal']:
-                    src = base_s + ext
-                    if os.path.exists(src): zf.write(src, os.path.basename(src))
-                pass_text = twofa_pass if twofa_pass != "None" else "No_Password"
-                numbers_txt += f"+{phone} | pass:{pass_text}\n"
-            numbers_txt += "\n\nPurchased from @nova_tgid_store_bot\n"
-            zf.writestr("numbers.txt", numbers_txt)
-        caption = f"{P_YES} <b>Bulk Purchase Successful!</b>\n\n{P_FLAG} Country: {country}\n{P_PKG} Quantity: {qty}\n{P_CARD} Total Paid: {P_INR}{final_cost}"
-        await bot.send_file(uid, zip_name, caption=caption)
-        await log_primary_purchase(uid, country, price, final_cost, year, qty)
-    except Exception as e: await event.respond(f"{P_WARN} Error: {e}")
-    finally:
-        if os.path.exists(zip_name): os.remove(zip_name)
-
 async def main():
     print("✅ ULTIMATE ADVANCED HTML BOT STARTED SUCCESSFULLY")
     await bot.run_until_disconnected()
 
 if __name__ == '__main__':
-    bot.start(bot_token=BOT_TOKEN)
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(main())
+    asyncio.run(main())
